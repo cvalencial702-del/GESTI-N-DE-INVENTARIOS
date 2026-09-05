@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Solicitud de Pedido · LPS</title>
+<style>
+:root{--navy:#0A2540;--blue:#1598FF;--green:#16A34A;--danger:#DC2626;--slate:#5B6B7C;--line:#E2EBF3;--bg:#EEF1F6;}
+*{box-sizing:border-box;margin:0;padding:0;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--navy);}
+input,select,textarea{width:100%;border:0.5px solid #D0DBE7;border-radius:7px;padding:9px 10px;font-size:12.5px;font-family:inherit;background:#fff;}
+label{font-size:10px;color:var(--slate);font-weight:700;text-transform:uppercase;display:block;margin-bottom:4px;}
+.req{color:var(--danger);}.btn{border:none;border-radius:8px;padding:11px 18px;font-size:13px;font-weight:600;cursor:pointer;}
+.btn-p{background:var(--blue);color:#fff;}.btn-green{background:var(--green);color:#fff;}.btn-g{background:#EEF3F8;color:#42505E;border:0.5px solid #D0DBE7;}
+.btn-sm{border:none;background:#EAF5FF;color:#0C6BC4;border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer;}
+.card{background:#fff;border:0.5px solid var(--line);border-radius:12px;padding:18px;margin-bottom:14px;}
+.bar{background:var(--navy);color:#fff;font-size:12px;font-weight:600;padding:10px 14px;border-radius:8px 8px 0 0;margin:-18px -18px 14px;}
+.topbar{background:var(--navy);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:10px;}.topbar .logo{height:30px;background:#fff;border-radius:6px;padding:2px 5px;}
+.wrap{max-width:760px;margin:0 auto;padding:22px;}table{width:100%;border-collapse:collapse;font-size:12px;}th{text-align:left;padding:6px;color:var(--slate);font-size:9.5px;text-transform:uppercase;}td{padding:5px 6px;}
+.msg{padding:16px;border-radius:10px;font-size:13px;text-align:center;}.msg.ok{background:#DCFCE7;color:#166534;}
+</style></head><body>
+<div class="topbar"><img id="logoTop" class="logo"><div><div style="font-size:15px;font-weight:600;">Solicitud de Pedido</div><div style="font-size:10px;color:#7FA8D4;">Registro público · LPS Grupo</div></div></div>
+<div class="wrap">
+  <div class="card"><div class="bar">🔍 SOLICITANTE</div>
+    <label>Cédula <span class="req">*</span></label><div style="display:flex;gap:6px;"><input id="ced" placeholder="Número de cédula" onkeydown="if(event.key==='Enter')buscar()"><button class="btn-sm" onclick="buscar()">🔍 Buscar</button></div>
+    <div id="usuInfo" style="font-size:13px;font-weight:600;margin-top:8px;"></div></div>
+  <div id="form" style="display:none;">
+    <div class="card"><div class="bar">🛒 EQUIPOS SOLICITADOS</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:end;margin-bottom:8px;"><div style="flex:1;min-width:180px;"><label>Producto (buscar o elegir)</label><input id="prod" list="prodlist" placeholder="Escriba o seleccione"></div><div style="width:80px;"><label>Cant.</label><input type="number" id="cant" min="1" value="1"></div><button class="btn btn-p" onclick="addItem()">＋</button></div>
+      <datalist id="prodlist"></datalist><div id="itemsList"></div></div>
+    <div class="card"><label>Observaciones</label><textarea id="obs" rows="2"></textarea></div>
+    <div id="err" style="color:var(--danger);font-size:12px;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:30px;flex-wrap:wrap;"><button class="btn btn-green" id="btnG" onclick="guardar()">💾 Guardar pedido</button><button class="btn" style="background:#0A2540;color:#fff;" onclick="previa()">👁 Vista previa PDF</button></div>
+  </div>
+  <div id="resultado"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://xjrynznnkofoljrmuqxd.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhqcnluem5ua29mb2xqcm11cXhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0OTU4OTAsImV4cCI6MjEwNDA3MTg5MH0.2umtjJLYCoe5GB_cyGbJ7m438DrQ_bob0JJM2LUUIPs';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+// Verificar que la librería de Supabase cargó (si no, avisar en vez de fallar en silencio)
+if(typeof supabase==='undefined'){ document.addEventListener('DOMContentLoaded',function(){ document.body.insertAdjacentHTML('afterbegin','<div style="background:#FEE2E2;color:#991B1B;padding:12px;text-align:center;font-size:13px;">⚠ No se pudo cargar la conexión. Verifique su conexión a internet y recargue.</div>'); }); }
+const LOGO_LPS='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEEAAAAoCAYAAAChDJfXAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAARTSURBVGhD7ZltTJVlGMd/13OAA4UBSrBJaNPRMhWVOc2FOZnLMnKu2rK15UzZilxv9MnUrZq9aFlfWl9ac+U0k3Q4tZKpaWENBk1bDJFASYgQ5OUAh/P2XH24D6HHD22n5zSbz+/T2Tn3ue/r+T3X/T/3syOqqtzkWLFv3Iy4ElwJBleCK8HgSnAlGFwJrgSDK8GVYHAluBIMroR4JSjwx7DSMQROP4grcNmv+MOxnySO+CQovHISyo8rEQclqMJwEMqqhYqTMByKHZEY4pIA0BeA/lGwHZKgCi39sPqI0tANh9rgnTrFF4wd6TxxS4glbIM/DMEIDIWgN9rStpoWtxUCEegegc4hZSR0rUB/GDacgLM9whuLYMVUZWejsLXWzJlIHJFgKxz8TSmpNFtk8V6Yv1t4YD/sboKIDRcGlMcPwbKvlNIqePAAHG4bt/DdJWi8AmvvUZ6aAW8tFmZOUvacgzd/MgIThSMSiN7Jiz5ougLbFyv7SiHLq2w6DbVdsPccnL0MVSuFmieE6Zmwo0H+bve7s5SMFKg8D819yvcdSkuf4BH4tBE+aFBCduyqzuCYBIBkCzYvFJZOEYpy4LUFELKhplNJT4Gwwvv1cKBFKS+Ej0ogLcl8d2qG8PZ9ylBIWPMNVJwS8icoux9S7s9TPj4jHG5VxzLoav6VhNh6kiyYlAYeARG4/RYBYCAAjxUIq6Yrv/YqW2uFddVK24CSFK3AI7A0X1h+p037kBC24fVFUJQjfLgEkiyluv36NZ0gbgkpFgwGhWBkPOBGw1DbZdo2bENdlyJAQaZwrN1mTray/xHhyCpIT4ZtdSYvACIKu5qUby9aTL5VCdqwqQZaB5Tnjwv+iLAkz8znNHFJEIGSfOgZhTVHlX3NxoICO+qhrFp56YSy+UcTbkungC8kbKu32NmofH1B8YWEolzBilZQ06G8Vy8UZitVK4XtxdA5IpRWCae74NnZ8GiBhZUAC/FJANbPEspmKf6wELZNZUkCW+4Vki2T9E/PMEF4RzqsnSlsmAOVzfDJL/DkXfBusZkLzPhABFYXKHnpsGwq5KcrgQg8V6hsXACeuKr9ZyTef6DGfvvHtsKX55SNp4XPlsP8XBgIKKlJRohHFEsEf1gZDgmZqeALwkQveKPB2OOH9dVwtgcqiuDY79DQDS/OhfK54PVcs7yjxC3hamyFPU1GwufLYTCoqMLP3cq0DMhOE7K8wsFWpSgXctKgYwj+HIEX5gki5sR4vh+eOQqtg5DqgVeLlLJCIzKRODr9WGtneYXeUUjxwMPTLHpH4UyPYiMMBiDDK/hCMCFl3L8IFGTCFytgxkRly0Jl3ezEC8CpTlCFUx3Kribh5Xkm6S/5lMJsYXL6+NH5hw4ozjN7O2ybDJGYoFNgMAC3ecelJhpHJBDdEhGNnhGiFyPR12OoXn/RNwKOSfg/8x/suBsfV4IrweBKcCUYXAmuBIMrAfgLhJ7NVYtfXl4AAAAASUVORK5CYII=';
+let catalogo=[],usuario=null,items=[];
+function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+document.getElementById('logoTop').src=LOGO_LPS;
+async function init(){ const {data}=await sb.from('inv_catalogo').select('*').order('descripcion'); catalogo=data||[]; document.getElementById('prodlist').innerHTML=catalogo.map(c=>'<option value="'+esc(c.descripcion)+'">').join(''); }
+init();
+async function buscar(){
+  const c=(document.getElementById('ced').value||'').trim(); if(!c){ alert('Escriba la cédula'); return; }
+  const {data}=await sb.from('inv_personal').select('cedula,nombre').eq('cedula',c).limit(1);
+  const info=document.getElementById('usuInfo');
+  if(!data||!data[0]){ usuario=null; info.innerHTML='<span style="color:var(--danger);">⛔ Cédula no encontrada.</span>'; document.getElementById('form').style.display='none'; return; }
+  usuario={cedula:data[0].cedula,nombre:(data[0].nombre||'').trim()};
+  info.innerHTML='<span style="color:var(--green);">✅ '+esc(usuario.nombre)+'</span>';
+  document.getElementById('form').style.display=''; items=[]; renderItems();
+}
+function addItem(){ const p=(document.getElementById('prod').value||'').trim(); const q=Number(document.getElementById('cant').value)||0; if(!p){ alert('Escriba o seleccione un producto'); return; } if(!(q>0)){ alert('Cantidad mayor que cero'); return; } items.push({producto:p,cantidad:q}); document.getElementById('prod').value=''; document.getElementById('cant').value='1'; document.getElementById('prod').focus(); renderItems(); }
+function delItem(i){ items.splice(i,1); renderItems(); }
+function renderItems(){ document.getElementById('itemsList').innerHTML=items.length?('<table><thead><tr><th>Producto</th><th style="width:70px;">Cant.</th><th></th></tr></thead><tbody>'+items.map((it,i)=>'<tr><td>'+esc(it.producto)+'</td><td>'+it.cantidad+'</td><td><button class="btn-sm" style="background:#FEE2E2;color:#991B1B;" onclick="delItem('+i+')">✕</button></td></tr>').join('')+'</tbody></table>'):'<div style="font-size:11px;color:var(--slate);">Sin equipos.</div>'; }
+function pdfHTML(r,its){ return '<div style="font-family:Arial,sans-serif;color:#0A2540;padding:22px;max-width:800px;"><div style="display:flex;align-items:center;gap:12px;border-bottom:3px solid #0A2540;padding-bottom:10px;"><img src="'+LOGO_LPS+'" style="height:44px;"><div><div style="font-size:18px;font-weight:bold;">SOLICITUD DE PEDIDO</div><div style="font-size:13px;font-weight:bold;color:#1598FF;">'+esc(r.consecutivo||'')+'</div></div><div style="margin-left:auto;text-align:right;font-size:10px;color:#5B6B7C;">Fecha: '+new Date(r.fecha_registro).toLocaleDateString('es-CO')+'<br>Hora: '+new Date(r.fecha_registro).toLocaleTimeString('es-CO')+'</div></div><table style="width:100%;font-size:11px;margin-top:10px;"><tr><td style="padding:3px;"><b>Cédula:</b> '+esc(r.cedula||'')+'</td><td style="padding:3px;"><b>Solicitante:</b> '+esc(r.solicitante||'')+'</td></tr></table><div style="font-weight:bold;margin-top:12px;font-size:11px;">EQUIPOS SOLICITADOS</div><table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:4px;"><tr style="background:#0A2540;color:#fff;"><th style="border:1px solid #ccc;padding:3px;">Producto</th><th style="border:1px solid #ccc;padding:3px;">Cantidad</th></tr>'+its.map(x=>'<tr><td style="border:1px solid #ccc;padding:3px;">'+esc(x.producto)+'</td><td style="border:1px solid #ccc;padding:3px;text-align:center;">'+x.cantidad+'</td></tr>').join('')+'</table>'+(r.observaciones?'<div style="font-size:10px;margin-top:10px;"><b>Observaciones:</b> '+esc(r.observaciones)+'</div>':'')+'<div style="font-size:9px;color:#5B6B7C;margin-top:16px;border-top:1px solid #ccc;padding-top:6px;">LPS Grupo · Solicitud de Pedido · Generado: '+new Date().toLocaleString('es-CO')+'</div></div>'; }
+function previa(){ if(!usuario){ alert('Busque la cédula'); return; } if(!items.length){ alert('Agregue equipos'); return; } const r={consecutivo:'(borrador)',fecha_registro:new Date().toISOString(),cedula:usuario.cedula,solicitante:usuario.nombre,observaciones:document.getElementById('obs').value.trim()}; const w=window.open('','_blank'); w.document.write('<html><head><title>Vista previa</title></head><body>'+pdfHTML(r,items)+'</body></html>'); w.document.close(); }
+async function guardar(){
+  const err=document.getElementById('err'); err.textContent='';
+  if(!usuario){ err.textContent='Busque la cédula.'; return; }
+  if(!items.length){ err.textContent='Agregue al menos un equipo.'; return; }
+  const btn=document.getElementById('btnG'); btn.disabled=true; btn.textContent='Guardando…';
+  try{
+    const {data:cod,error:e0}=await sb.rpc('inv_pedido_siguiente'); if(e0)throw e0;
+    const {data:ped,error:e1}=await sb.from('inv_pedidos').insert({consecutivo:cod,cedula:usuario.cedula,solicitante:usuario.nombre,observaciones:document.getElementById('obs').value.trim()||null,creado_por:'Público (link)'}).select();
+    if(e1)throw e1; const pid=ped[0].id;
+    const {error:e2}=await sb.from('inv_pedido_items').insert(items.map(it=>({pedido_id:pid,producto:it.producto,cantidad:Number(it.cantidad)}))); if(e2)throw e2;
+    const r={consecutivo:cod,fecha_registro:new Date().toISOString(),cedula:usuario.cedula,solicitante:usuario.nombre,observaciones:document.getElementById('obs').value.trim()};
+    document.getElementById('form').style.display='none';
+    document.getElementById('resultado').innerHTML='<div class="msg ok">✅ Pedido guardado como <b>'+esc(cod)+'</b>.</div><div style="display:flex;gap:8px;justify-content:center;margin-top:12px;"><button class="btn" style="background:#0A2540;color:#fff;" onclick="descargar(\''+cod+'\')">📄 Descargar PDF</button><button class="btn btn-p" onclick="location.reload()">Nuevo pedido</button></div>';
+    window._ultPedido={r:r,its:items.slice()};
+  }catch(e){ btn.disabled=false; btn.textContent='💾 Guardar pedido'; const m=(e.message||'').toLowerCase(); if(m.includes('inv_pedido')||m.includes('does not exist')||m.includes('schema')){ err.innerHTML='Error: las tablas de pedidos no están creadas en la base. Ejecute el SQL "inventarios-pedidos.sql" en Supabase.'; } else { err.textContent='Error al guardar: '+e.message; } }
+}
+function descargar(){ const d=window._ultPedido; if(!d)return; const w=window.open('','_blank'); w.document.write('<html><head><title>'+esc(d.r.consecutivo)+'</title></head><body>'+pdfHTML(d.r,d.its)+'<scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt></body></html>'); w.document.close(); }
+</script></body></html>
